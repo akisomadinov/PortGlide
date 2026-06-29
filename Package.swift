@@ -5,7 +5,8 @@ import PackageDescription
 
 let localFrameworks = "/Library/Developer/CommandLineTools/Library/Developer/Frameworks"
 let localLibraries = "/Library/Developer/CommandLineTools/Library/Developer/usr/lib"
-let needsLocalTestingPath = FileManager.default.fileExists(atPath: "\(localFrameworks)/Testing.framework")
+let needsLocalTestingPath = ProcessInfo.processInfo.environment["CI"] != "true"
+    && FileManager.default.fileExists(atPath: "\(localFrameworks)/Testing.framework")
 
 let testSwiftSettings: [SwiftSetting] = needsLocalTestingPath
     ? [.unsafeFlags(["-F", localFrameworks])]

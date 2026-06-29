@@ -26,6 +26,25 @@ deploy ALL=(root) NOPASSWD: /bin/systemctl start openvpn-client@client, /bin/sys
 
 Adapt the username, systemctl path, and unit to your server. Do not grant unrestricted passwordless sudo.
 
+## Credential rotation helper
+
+Install the repository helper once on the VPS:
+
+```bash
+sudo install -o root -g root -m 0755 \
+  scripts/remote/portglide-openvpn-credentials \
+  /usr/local/sbin/portglide-openvpn-credentials
+```
+
+Allow only the selected unit and helper invocation:
+
+```sudoers
+Cmnd_Alias PORTGLIDE_OPENVPN = /bin/systemctl start openvpn-client@client, /bin/systemctl stop openvpn-client@client, /usr/local/sbin/portglide-openvpn-credentials client
+deploy ALL=(root) NOPASSWD: PORTGLIDE_OPENVPN
+```
+
+The `Обновить доступ` action in PortGlide stores credentials in macOS Keychain, sends them through SSH stdin, replaces `/etc/openvpn/client/client.auth` atomically with mode `0600`, and restarts only `openvpn-client@client`.
+
 ## Local VPN profile
 
 Selecting an `.ovpn` file stores its path only. Opening it delegates to the VPN client registered in macOS.

@@ -4,6 +4,7 @@
 
 - Keep managed-application status synchronized with the actual macOS process state.
 - Distinguish applications launched through PortGlide from applications opened elsewhere.
+- Add OpenVPN credential rotation backed by macOS Keychain and SSH stdin.
 
 ## 0.1.0
 

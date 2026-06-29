@@ -16,6 +16,7 @@ PortGlide keeps multi-server connection workflows in one place. Select a server 
 - SSH connectivity checks
 - Managed SOCKS5 tunnels with safe process ownership checks
 - Independent remote OpenVPN start/stop controls
+- Secure OpenVPN credential rotation through macOS Keychain and SSH stdin
 - Independent RDP tunnel and client launch controls
 - Launch supported desktop applications through the selected SOCKS5 proxy
 - Local `.ovpn` handoff to an installed VPN client
@@ -55,6 +56,8 @@ PortGlide stores non-secret profiles in:
 ```
 
 SSH hostnames, users, ports, and identity files remain in `~/.ssh/config`. VPN profiles and private keys are never copied into the repository or application profile store.
+
+OpenVPN usernames and passwords are stored separately in macOS Keychain. The remote credential helper receives them through encrypted SSH stdin, never through command-line arguments.
 
 See [Configuration](docs/configuration.md) and [Architecture](docs/architecture.md) for details.
 

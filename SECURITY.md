@@ -14,3 +14,5 @@ PortGlide does not need repository-stored credentials. Keep these files outside 
 - Local profile exports and logs
 
 Remote service control uses non-interactive `sudo -n`. Configure the narrowest possible sudoers rule for the exact `systemctl start` and `systemctl stop` commands required by a profile.
+
+OpenVPN credentials are stored in macOS Keychain using `WhenUnlockedThisDeviceOnly`. Rotation sends them through SSH stdin to the repository's root-owned helper. Credentials are not included in process arguments, JSON profiles, application logs, or Git.

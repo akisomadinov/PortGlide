@@ -23,15 +23,21 @@ enum CommandError: LocalizedError {
 }
 
 final class CommandRunner {
-    func run(_ executable: String, arguments: [String], requireSuccess: Bool = true) async throws -> CommandResult {
+    func run(
+        _ executable: String,
+        arguments: [String],
+        requireSuccess: Bool = true,
+        input: Data? = nil
+    ) async throws -> CommandResult {
         try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             let pipe = Pipe()
+            let inputPipe = input == nil ? nil : Pipe()
             process.executableURL = URL(fileURLWithPath: executable)
             process.arguments = arguments
             process.standardOutput = pipe
             process.standardError = pipe
-            process.standardInput = FileHandle.nullDevice
+            process.standardInput = inputPipe ?? FileHandle.nullDevice
             process.terminationHandler = { finished in
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 let output = String(decoding: data, as: UTF8.self)
@@ -48,6 +54,10 @@ final class CommandRunner {
             }
             do {
                 try process.run()
+                if let input, let inputPipe {
+                    inputPipe.fileHandleForWriting.write(input)
+                    try? inputPipe.fileHandleForWriting.close()
+                }
             } catch {
                 continuation.resume(throwing: CommandError.failedToLaunch(error.localizedDescription))
             }

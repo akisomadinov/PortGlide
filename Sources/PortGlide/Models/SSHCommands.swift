@@ -52,6 +52,13 @@ enum SSHCommands {
         remoteVPNAction("stop", profile: profile)
     }
 
+    static func updateRemoteVPNCredentials(for profile: ServerProfile, instance: String) -> [String] {
+        [
+            "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", profile.sshAlias,
+            "sudo -n /usr/local/sbin/portglide-openvpn-credentials \(instance)"
+        ]
+    }
+
     private static func remoteVPNAction(_ action: String, profile: ServerProfile) -> [String] {
         [
             "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", profile.sshAlias,

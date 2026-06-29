@@ -79,6 +79,15 @@ struct ServerProfile: Codable, Identifiable, Hashable {
     private static func matches(_ value: String, pattern: String) -> Bool {
         value.range(of: pattern, options: .regularExpression) != nil
     }
+
+    var remoteVPNInstance: String? {
+        let prefix = "openvpn-client@"
+        guard remoteVPNService.hasPrefix(prefix) else { return nil }
+        let instance = String(remoteVPNService.dropFirst(prefix.count))
+        guard !instance.isEmpty,
+              Self.matches(instance, pattern: #"^[A-Za-z0-9_.-]+$"#) else { return nil }
+        return instance
+    }
 }
 
 enum ProfileValidationError: LocalizedError, Equatable {

@@ -4,6 +4,7 @@ struct ProfileDetailView: View {
     let profile: ServerProfile
     let onEdit: () -> Void
     @EnvironmentObject private var controller: TunnelController
+    @State private var showsVPNCredentials = false
 
     var body: some View {
         ScrollView {
@@ -64,7 +65,9 @@ struct ProfileDetailView: View {
                                         await controller.startRemoteVPN(profile)
                                     }
                                 }
-                            }
+                            },
+                            secondaryTitle: "Обновить доступ",
+                            secondaryAction: { showsVPNCredentials = true }
                         )
 
                         Divider()
@@ -141,6 +144,10 @@ struct ProfileDetailView: View {
                     controller.refreshApplicationStates(profile)
                 }
             }
+        }
+        .sheet(isPresented: $showsVPNCredentials) {
+            VPNCredentialsEditor(profile: profile)
+                .environmentObject(controller)
         }
     }
 

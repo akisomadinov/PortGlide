@@ -45,6 +45,14 @@ import Testing
     #expect(!start.joined(separator: " ").contains("rdp"))
 }
 
+@Test func remoteVPNCredentialCommandContainsNoCredentialValues() {
+    let profile = ServerProfile.example
+    #expect(profile.remoteVPNInstance == "client")
+    let arguments = SSHCommands.updateRemoteVPNCredentials(for: profile, instance: "client")
+    #expect(arguments.last == "sudo -n /usr/local/sbin/portglide-openvpn-credentials client")
+    #expect(!arguments.joined(separator: " ").contains("password"))
+}
+
 @Test func managedApplicationsReceiveSelectedProxyWithoutShell() {
     let environment = ManagedApplication.proxyEnvironment(for: .example, base: [:])
     #expect(environment["ALL_PROXY"] == "socks5h://127.0.0.1:1089")

@@ -54,6 +54,7 @@ final class TunnelController: ObservableObject {
     @Published private(set) var applicationStates: [String: ConnectionState] = [:]
 
     private let runner = CommandRunner()
+    private let credentialStore = VPNCredentialStore()
     private var launchedProcesses: [String: Process] = [:]
     private var launchedApplicationProfiles: [String: ServerProfile.ID] = [:]
 
@@ -188,6 +189,56 @@ final class TunnelController: ObservableObject {
                 throw self.friendlyVPNError(error, profile: profile)
             }
             return .idle
+        }
+    }
+
+    func storedVPNCredentials(for profile: ServerProfile) -> VPNCredentials? {
+        try? credentialStore.load(profileID: profile.id)
+    }
+
+    func updateRemoteVPNCredentials(
+        _ rawProfile: ServerProfile,
+        username: String,
+        password: String
+    ) async -> Bool {
+        update(rawProfile.id, \.remoteVPN, .working("Обновление доступа OpenVPN…"))
+        do {
+            let profile = try rawProfile.validated()
+            let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cleanUsername.isEmpty, !password.isEmpty else {
+                throw UserFacingError("Введите логин и новый пароль OpenVPN.")
+            }
+            guard !cleanUsername.contains("\n"), !cleanUsername.contains("\r"),
+                  !password.contains("\n"), !password.contains("\r") else {
+                throw UserFacingError("Логин и пароль не могут содержать перенос строки.")
+            }
+            guard cleanUsername.count <= 256, password.count <= 1024 else {
+                throw UserFacingError("Логин или пароль слишком длинный.")
+            }
+            guard let instance = profile.remoteVPNInstance else {
+                throw UserFacingError("Обновление доступа поддерживается для сервиса вида openvpn-client@имя.")
+            }
+
+            let payload = Data("\(cleanUsername)\n\(password)\n".utf8)
+            do {
+                _ = try await runner.run(
+                    "/usr/bin/ssh",
+                    arguments: SSHCommands.updateRemoteVPNCredentials(for: profile, instance: instance),
+                    input: payload
+                )
+            } catch {
+                throw friendlyVPNError(error, profile: profile)
+            }
+
+            try credentialStore.save(
+                VPNCredentials(username: cleanUsername, password: password),
+                profileID: profile.id
+            )
+            update(profile.id, \.remoteVPN, .active("Пароль обновлён · OpenVPN включён"))
+            return true
+        } catch {
+            update(rawProfile.id, \.remoteVPN, .failed(error.localizedDescription))
+            return false
         }
     }
 

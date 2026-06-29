@@ -1,0 +1,27 @@
+.DS_Store
+.build/
+build/
+DerivedData/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# VPN profiles contain client certificates and private keys.
+*.ovpn
+*.p12
+*.pfx
+*.key
+*.pem
+
+# Local runtime state and logs.
+*.pid
+*.log
+*.ips
+
+# Local profiles and machine-specific metadata.
+profiles.json
+.claude/
+.codex/
+.cursor/
+.ai/
+AGENTS.md

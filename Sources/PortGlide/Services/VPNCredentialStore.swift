@@ -59,4 +59,3 @@ final class VPNCredentialStore {
         guard addStatus == errSecSuccess else { throw KeychainError.status(addStatus) }
     }
 }
-

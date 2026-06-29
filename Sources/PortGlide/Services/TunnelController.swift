@@ -91,6 +91,9 @@ final class TunnelController: ObservableObject {
         guard let profile = try? rawProfile.validated() else { return }
         let proxyPID = await listenerPID(on: profile.proxyPort)
         let rdpPID = await listenerPID(on: profile.rdpLocalPort)
+        let remoteVPNIsActive = state(for: profile).remoteVPN.isWorking
+            ? nil
+            : await refreshRemoteVPN(profile)
         if !state(for: profile).proxy.isWorking, let proxyPID {
             let arguments = await processArguments(pid: proxyPID)
             update(
@@ -105,18 +108,15 @@ final class TunnelController: ObservableObject {
         }
         if !state(for: profile).rdp.isWorking, let rdpPID {
             let arguments = await processArguments(pid: rdpPID)
-            update(
-                profile.id,
-                \.rdp,
-                matchesTunnel(arguments, profile: profile, marker: "-L")
-                    ? .active("Работает · PID \(rdpPID)")
-                    : .failed("Порт занят другим процессом · PID \(rdpPID)")
-            )
+            if !matchesTunnel(arguments, profile: profile, marker: "-L") {
+                update(profile.id, \.rdp, .failed("Порт занят другим процессом · PID \(rdpPID)"))
+            } else if remoteVPNIsActive == false {
+                update(profile.id, \.rdp, .warning("Туннель открыт, но OpenVPN выключен"))
+            } else {
+                update(profile.id, \.rdp, .active("Работает · PID \(rdpPID)"))
+            }
         } else if !state(for: profile).rdp.isWorking {
             update(profile.id, \.rdp, .idle)
-        }
-        if !state(for: profile).remoteVPN.isWorking {
-            await refreshRemoteVPN(profile)
         }
     }
 
@@ -142,21 +142,23 @@ final class TunnelController: ObservableObject {
 
     func startRDP(_ rawProfile: ServerProfile) async {
         await perform(rawProfile, keyPath: \.rdp, working: "Запуск RDP-туннеля…") { profile in
+            let remoteCheck = try await self.runner.run(
+                "/usr/bin/ssh",
+                arguments: SSHCommands.checkRemoteRDP(for: profile),
+                requireSuccess: false
+            )
+            guard remoteCheck.status == 0 else {
+                throw UserFacingError(
+                    "RDP-компьютер недоступен через VPS. Включите OpenVPN и дождитесь статуса «Включено», затем повторите."
+                )
+            }
+
             if let pid = await self.listenerPID(on: profile.rdpLocalPort) {
                 let args = await self.processArguments(pid: pid)
                 guard self.matchesTunnel(args, profile: profile, marker: "-L") else {
                     throw UserFacingError("Порт \(profile.rdpLocalPort) занят другим процессом PID \(pid).")
                 }
             } else {
-                let remoteCheck = try await self.runner.run(
-                    "/usr/bin/ssh",
-                    arguments: SSHCommands.checkRemoteRDP(for: profile),
-                    requireSuccess: false
-                )
-                if remoteCheck.status != 0 {
-                    throw UserFacingError("RDP target недоступен. Сначала включите OpenVPN отдельной кнопкой и дождитесь статуса «Включено».")
-                }
-
                 let process = try self.runner.launch("/usr/bin/ssh", arguments: SSHCommands.rdp(for: profile))
                 self.launchedProcesses[self.processKey(profile, "rdp")] = process
                 _ = try await self.waitForPort(profile.rdpLocalPort, process: process)
@@ -253,13 +255,29 @@ final class TunnelController: ObservableObject {
         }
     }
 
-    func openRDPClient(_ rawProfile: ServerProfile) {
+    func openRDPClient(_ rawProfile: ServerProfile) async {
+        update(rawProfile.id, \.rdp, .working("Проверка RDP-подключения…"))
         do {
             let profile = try rawProfile.validated()
-            guard state(for: profile).rdp.isActive else {
-                throw UserFacingError("Сначала включите RDP-туннель.")
+            guard let pid = await listenerPID(on: profile.rdpLocalPort) else {
+                throw UserFacingError("RDP-туннель выключен. Сначала нажмите «Включить».")
+            }
+            let arguments = await processArguments(pid: pid)
+            guard matchesTunnel(arguments, profile: profile, marker: "-L") else {
+                throw UserFacingError("Локальный RDP-порт занят другим процессом PID \(pid).")
+            }
+            let remoteCheck = try await runner.run(
+                "/usr/bin/ssh",
+                arguments: SSHCommands.checkRemoteRDP(for: profile),
+                requireSuccess: false
+            )
+            guard remoteCheck.status == 0 else {
+                throw UserFacingError(
+                    "Связь с RDP-компьютером потеряна. Включите OpenVPN и повторно включите RDP-туннель."
+                )
             }
             try openRDP(profile)
+            update(profile.id, \.rdp, .active("Открыт RDP · PID \(pid)"))
         } catch {
             update(rawProfile.id, \.rdp, .failed(error.localizedDescription))
         }
@@ -386,13 +404,7 @@ final class TunnelController: ObservableObject {
     }
 
     private func openRDP(_ profile: ServerProfile) throws {
-        let text = """
-        full address:s:127.0.0.1:\(profile.rdpLocalPort)
-        prompt for credentials:i:1
-        authentication level:i:2
-        screen mode id:i:2
-        redirectclipboard:i:1
-        """
+        let text = RDPFile.contents(port: profile.rdpLocalPort)
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent("portglide-\(profile.id.uuidString).rdp")
         try text.write(to: file, atomically: true, encoding: .utf8)
@@ -405,10 +417,11 @@ final class TunnelController: ObservableObject {
         "\(profile.id.uuidString):\(kind)"
     }
 
-    private func refreshRemoteVPN(_ profile: ServerProfile) async {
+    @discardableResult
+    private func refreshRemoteVPN(_ profile: ServerProfile) async -> Bool {
         guard !profile.remoteVPNService.isEmpty else {
             update(profile.id, \.remoteVPN, .failed("Сервис не настроен"))
-            return
+            return false
         }
         let result = try? await runner.run(
             "/usr/bin/ssh",
@@ -417,8 +430,10 @@ final class TunnelController: ObservableObject {
         )
         if result?.status == 0 {
             update(profile.id, \.remoteVPN, .active("Включено на \(profile.name)"))
+            return true
         } else {
             update(profile.id, \.remoteVPN, .idle)
+            return false
         }
     }
 

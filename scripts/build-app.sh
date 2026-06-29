@@ -21,6 +21,9 @@ if [ -n "${RUNNING_PIDS}" ]; then
     done
 fi
 
+# Recreate the generated bundle so Finder/iCloud extended attributes from a
+# previous build cannot invalidate code signing.
+rm -rf "${APP_DIR}"
 mkdir -p "${MACOS_DIR}"
 cp "${ROOT_DIR}/.build/release/PortGlide" "${MACOS_DIR}/PortGlide"
 mkdir -p "${CONTENTS}/Resources"

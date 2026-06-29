@@ -36,6 +36,14 @@ import Testing
     #expect(arguments.last == "my-vps")
 }
 
+@Test func rdpFileUsesLocalTunnelWithoutRemoteDesktopGateway() {
+    let contents = RDPFile.contents(port: 13389)
+    #expect(contents.contains("full address:s:127.0.0.1:13389"))
+    #expect(contents.contains("gatewayprofileusagemethod:i:1"))
+    #expect(contents.contains("gatewayusagemethod:i:0"))
+    #expect(contents.contains("autoreconnection enabled:i:1"))
+}
+
 @Test func remoteVPNStartAndStopAreIndependentCommands() {
     let start = SSHCommands.startRemoteVPN(for: .example)
     let stop = SSHCommands.stopRemoteVPN(for: .example)

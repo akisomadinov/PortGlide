@@ -48,3 +48,18 @@ The `Обновить доступ` action in PortGlide stores credentials in ma
 ## Local VPN profile
 
 Selecting an `.ovpn` file stores its path only. Opening it delegates to the VPN client registered in macOS.
+
+## Interface visibility
+
+Use the `Вид` button in a country header to hide services that are not needed on the main screen. Visibility is stored globally for PortGlide and persists between launches.
+
+The following items can be controlled independently:
+
+- SSH
+- SOCKS5 Proxy
+- applications launched through SOCKS5
+- local VPN profile
+- remote OpenVPN
+- RDP tunnel
+
+Hiding a running service does not stop it. Use `Показать всё` to restore the default layout.

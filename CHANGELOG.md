@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Keep managed-application status synchronized with the actual macOS process state.
+- Distinguish applications launched through PortGlide from applications opened elsewhere.
+
 ## 0.1.0
 
 - Initial open-source release.

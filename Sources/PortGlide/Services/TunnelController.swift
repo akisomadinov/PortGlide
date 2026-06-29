@@ -6,18 +6,22 @@ enum ConnectionState: Equatable {
     case ready(String)
     case working(String)
     case active(String)
+    case warning(String)
     case failed(String)
 
     var title: String {
         switch self {
         case .idle: return "Выключено"
-        case let .ready(text), let .working(text), let .active(text), let .failed(text): return text
+        case let .ready(text), let .working(text), let .active(text),
+             let .warning(text), let .failed(text): return text
         }
     }
 
     var isActive: Bool {
-        if case .active = self { return true }
-        return false
+        switch self {
+        case .active, .warning: return true
+        default: return false
+        }
     }
 }
 
@@ -29,6 +33,21 @@ struct ProfileConnectionState {
     var localVPN: ConnectionState = .idle
 }
 
+enum ManagedApplicationStateResolver {
+    static func resolve(
+        isRunning: Bool,
+        launchedThroughProfile: Bool,
+        proxyIsActive: Bool,
+        profileName: String
+    ) -> ConnectionState {
+        guard isRunning else { return .ready("Готово к запуску") }
+        guard launchedThroughProfile else { return .active("Открыто вне PortGlide") }
+        return proxyIsActive
+            ? .active("Запущено через \(profileName)")
+            : .warning("Открыто, но SOCKS5 выключен")
+    }
+}
+
 @MainActor
 final class TunnelController: ObservableObject {
     @Published private(set) var states: [ServerProfile.ID: ProfileConnectionState] = [:]
@@ -36,6 +55,7 @@ final class TunnelController: ObservableObject {
 
     private let runner = CommandRunner()
     private var launchedProcesses: [String: Process] = [:]
+    private var launchedApplicationProfiles: [String: ServerProfile.ID] = [:]
 
     func state(for profile: ServerProfile) -> ProfileConnectionState {
         states[profile.id] ?? ProfileConnectionState()
@@ -85,7 +105,7 @@ final class TunnelController: ObservableObject {
             update(profile.id, \.rdp, .idle)
         }
         await refreshRemoteVPN(profile)
-        await refreshApplications(profile)
+        refreshApplicationStates(profile)
     }
 
     func startProxy(_ rawProfile: ServerProfile) async {
@@ -225,6 +245,7 @@ final class TunnelController: ObservableObject {
                 environment: ManagedApplication.proxyEnvironment(for: profile)
             )
             launchedProcesses["app:\(application.id)"] = process
+            launchedApplicationProfiles[application.id] = profile.id
             applicationStates[key] = .active("Запущено через \(profile.name)")
         } catch {
             applicationStates[key] = .failed(error.localizedDescription)
@@ -355,16 +376,32 @@ final class TunnelController: ObservableObject {
         return error
     }
 
-    private func refreshApplications(_ profile: ServerProfile) async {
+    func refreshApplicationStates(_ rawProfile: ServerProfile) {
+        guard let profile = try? rawProfile.validated() else { return }
         for application in ManagedApplication.supported {
             let key = applicationKey(application, profile)
             guard FileManager.default.isExecutableFile(atPath: application.binaryPath) else {
                 applicationStates[key] = .failed("Не установлено")
                 continue
             }
-            applicationStates[key] = isApplicationRunning(application)
-                ? .active("Уже запущено; маршрут не меняется")
-                : .ready("Готово к запуску")
+            guard isApplicationRunning(application) else {
+                launchedProcesses.removeValue(forKey: "app:\(application.id)")
+                launchedApplicationProfiles.removeValue(forKey: application.id)
+                applicationStates[key] = ManagedApplicationStateResolver.resolve(
+                    isRunning: false,
+                    launchedThroughProfile: false,
+                    proxyIsActive: false,
+                    profileName: profile.name
+                )
+                continue
+            }
+
+            applicationStates[key] = ManagedApplicationStateResolver.resolve(
+                isRunning: true,
+                launchedThroughProfile: launchedApplicationProfiles[application.id] == profile.id,
+                proxyIsActive: state(for: profile).proxy.isActive,
+                profileName: profile.name
+            )
         }
     }
 

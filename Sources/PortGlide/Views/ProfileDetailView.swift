@@ -133,7 +133,15 @@ struct ProfileDetailView: View {
             }
             .padding(24)
         }
-        .task(id: profile.id) { await controller.refresh(profile) }
+        .task(id: profile.id) {
+            await controller.refresh(profile)
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if !Task.isCancelled {
+                    controller.refreshApplicationStates(profile)
+                }
+            }
+        }
     }
 
     private var connectionState: ProfileConnectionState {

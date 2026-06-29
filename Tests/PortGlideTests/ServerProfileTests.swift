@@ -1,7 +1,7 @@
 import Testing
 @testable import PortGlide
 
-@Test func germanyIsDefaultSafeProfile() throws {
+@Test func exampleProfileIsValid() throws {
     let profile = try ServerProfile.example.validated()
     #expect(profile.sshAlias == "my-vps")
     #expect(profile.proxyPort == 1089)
@@ -24,7 +24,7 @@ import Testing
     }
 }
 
-@Test func proxyArgumentsAreSeparateAndUseGermanyAlias() {
+@Test func proxyArgumentsAreSeparateAndUseProfileAlias() {
     let arguments = SSHCommands.proxy(for: .example)
     #expect(Array(arguments.prefix(3)) == ["-N", "-D", "127.0.0.1:1089"])
     #expect(arguments.last == "my-vps")
@@ -45,7 +45,7 @@ import Testing
     #expect(!start.joined(separator: " ").contains("rdp"))
 }
 
-@Test func aiApplicationsReceiveSelectedProxyWithoutShell() {
+@Test func managedApplicationsReceiveSelectedProxyWithoutShell() {
     let environment = ManagedApplication.proxyEnvironment(for: .example, base: [:])
     #expect(environment["ALL_PROXY"] == "socks5h://127.0.0.1:1089")
     #expect(environment["NO_PROXY"] == "localhost,127.0.0.1,::1,*.local")
@@ -53,4 +53,34 @@ import Testing
     #expect(ManagedApplication.supported.map(\.id).contains("codex"))
     let codex = ManagedApplication.supported.first(where: { $0.id == "codex" })!
     #expect(codex.bundleIdentifier == "com.openai.codex")
+}
+
+@Test func warningStateKeepsRunningApplicationDisabled() {
+    #expect(ConnectionState.warning("SOCKS5 выключен").isActive)
+}
+
+@Test func managedApplicationStateFollowsProcessAndProxy() {
+    let closed = ManagedApplicationStateResolver.resolve(
+        isRunning: false,
+        launchedThroughProfile: true,
+        proxyIsActive: true,
+        profileName: "Example"
+    )
+    #expect(closed == .ready("Готово к запуску"))
+
+    let disconnected = ManagedApplicationStateResolver.resolve(
+        isRunning: true,
+        launchedThroughProfile: true,
+        proxyIsActive: false,
+        profileName: "Example"
+    )
+    #expect(disconnected == .warning("Открыто, но SOCKS5 выключен"))
+
+    let external = ManagedApplicationStateResolver.resolve(
+        isRunning: true,
+        launchedThroughProfile: false,
+        proxyIsActive: true,
+        profileName: "Example"
+    )
+    #expect(external == .active("Открыто вне PortGlide"))
 }

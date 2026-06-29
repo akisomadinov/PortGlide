@@ -21,6 +21,7 @@ struct StatusBadge: View {
         case .ready: return .blue
         case .working: return .orange
         case .active: return .green
+        case .warning: return .orange
         case .failed: return .red
         }
     }

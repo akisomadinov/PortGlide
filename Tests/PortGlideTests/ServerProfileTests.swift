@@ -65,6 +65,8 @@ import Testing
 
 @Test func warningStateKeepsRunningApplicationDisabled() {
     #expect(ConnectionState.warning("SOCKS5 выключен").isActive)
+    #expect(ConnectionState.working("Проверка").isWorking)
+    #expect(!ConnectionState.active("Включено").isWorking)
 }
 
 @Test func managedApplicationStateFollowsProcessAndProxy() {

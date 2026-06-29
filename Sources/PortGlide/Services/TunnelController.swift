@@ -23,6 +23,11 @@ enum ConnectionState: Equatable {
         default: return false
         }
     }
+
+    var isWorking: Bool {
+        if case .working = self { return true }
+        return false
+    }
 }
 
 struct ProfileConnectionState {
@@ -78,10 +83,15 @@ final class TunnelController: ObservableObject {
     }
 
     func refresh(_ rawProfile: ServerProfile) async {
+        await refreshConnectionStates(rawProfile)
+        refreshApplicationStates(rawProfile)
+    }
+
+    func refreshConnectionStates(_ rawProfile: ServerProfile) async {
         guard let profile = try? rawProfile.validated() else { return }
         let proxyPID = await listenerPID(on: profile.proxyPort)
         let rdpPID = await listenerPID(on: profile.rdpLocalPort)
-        if let proxyPID {
+        if !state(for: profile).proxy.isWorking, let proxyPID {
             let arguments = await processArguments(pid: proxyPID)
             update(
                 profile.id,
@@ -90,10 +100,10 @@ final class TunnelController: ObservableObject {
                     ? .active("Работает · PID \(proxyPID)")
                     : .failed("Порт занят другим процессом · PID \(proxyPID)")
             )
-        } else {
+        } else if !state(for: profile).proxy.isWorking {
             update(profile.id, \.proxy, .idle)
         }
-        if let rdpPID {
+        if !state(for: profile).rdp.isWorking, let rdpPID {
             let arguments = await processArguments(pid: rdpPID)
             update(
                 profile.id,
@@ -102,11 +112,12 @@ final class TunnelController: ObservableObject {
                     ? .active("Работает · PID \(rdpPID)")
                     : .failed("Порт занят другим процессом · PID \(rdpPID)")
             )
-        } else {
+        } else if !state(for: profile).rdp.isWorking {
             update(profile.id, \.rdp, .idle)
         }
-        await refreshRemoteVPN(profile)
-        refreshApplicationStates(profile)
+        if !state(for: profile).remoteVPN.isWorking {
+            await refreshRemoteVPN(profile)
+        }
     }
 
     func startProxy(_ rawProfile: ServerProfile) async {

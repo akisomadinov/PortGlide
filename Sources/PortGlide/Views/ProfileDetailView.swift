@@ -138,10 +138,16 @@ struct ProfileDetailView: View {
         }
         .task(id: profile.id) {
             await controller.refresh(profile)
+            var secondsSinceConnectionRefresh = 0
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 if !Task.isCancelled {
                     controller.refreshApplicationStates(profile)
+                    secondsSinceConnectionRefresh += 1
+                    if secondsSinceConnectionRefresh >= 5 {
+                        await controller.refreshConnectionStates(profile)
+                        secondsSinceConnectionRefresh = 0
+                    }
                 }
             }
         }

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import PortGlide
 
@@ -101,4 +102,31 @@ import Testing
         profileName: "Example"
     )
     #expect(external == .active("Открыто вне PortGlide"))
+}
+
+@MainActor
+@Test func profileStoreRestoresCorruptPrimaryFromBackup() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let primary = directory.appendingPathComponent("profiles.json")
+    let backup = directory.appendingPathComponent("profiles.backup.json")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    try Data("not-json".utf8).write(to: primary)
+    let expected = ServerProfile(
+        name: "Germany",
+        flag: "🇩🇪",
+        sshAlias: "germany-vps",
+        proxyPort: 1089,
+        rdpLocalPort: 13389,
+        rdpTargetHost: "10.50.2.179"
+    )
+    try JSONEncoder().encode([expected]).write(to: backup)
+
+    let store = ProfileStore(fileURL: primary, backupFileURL: backup)
+
+    #expect(store.profiles == [expected])
+    #expect(store.persistenceError != nil)
+    #expect(try JSONDecoder().decode([ServerProfile].self, from: Data(contentsOf: primary)) == [expected])
 }

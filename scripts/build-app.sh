@@ -60,5 +60,7 @@ chmod +x "${MACOS_DIR}/PortGlide"
 /usr/bin/xattr -cr "${APP_DIR}"
 /usr/bin/codesign --force --deep --sign - "${APP_DIR}"
 /usr/bin/codesign --verify --deep --strict "${APP_DIR}"
-echo "Открываю ${APP_DIR}"
-open "${APP_DIR}"
+if [ "${PORTGLIDE_SKIP_OPEN:-0}" != "1" ]; then
+    echo "Открываю ${APP_DIR}"
+    open "${APP_DIR}"
+fi

@@ -11,6 +11,8 @@
 - Recreate the generated app bundle before signing to avoid stale Finder/iCloud metadata.
 - Move OpenVPN and RDP into a separate bottom `Удалённый доступ` section.
 - Add persistent interface settings for hiding individual services and sections.
+- Back up profiles automatically and recover a missing or corrupt primary profile file.
+- Add a user-local installer so the application survives deletion of the source checkout.
 
 ## 0.1.0
 

@@ -63,3 +63,16 @@ The following items can be controlled independently:
 - RDP tunnel
 
 Hiding a running service does not stop it. Use `Показать всё` to restore the default layout.
+
+## Recovery after deleting the source folder
+
+The source repository, installed application, profiles, SSH configuration, and VPN secrets are intentionally stored separately:
+
+- source: any Git clone of the PortGlide repository;
+- installed app: `~/Applications/PortGlide.app` after running `scripts/install-user.sh`;
+- country profiles: `~/Library/Application Support/PortGlide/profiles.json`;
+- automatic profile backup: `~/Library/Application Support/PortGlide/profiles.backup.json`;
+- private VPN material: `~/Library/Application Support/PortGlide/Private/`;
+- SSH aliases and keys: `~/.ssh/`.
+
+Deleting the source folder therefore does not delete the installed application or connection data. Clone the repository again only when source changes are needed. PortGlide automatically restores a missing or corrupt primary profile file from its backup.

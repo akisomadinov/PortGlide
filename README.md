@@ -40,6 +40,14 @@ Double-click `RUN-PORTGLIDE.command`, or run:
 
 The signed development bundle is created at `build/PortGlide.app`.
 
+To install PortGlide independently of the source checkout:
+
+```bash
+./scripts/install-user.sh
+```
+
+This creates `~/Applications/PortGlide.app`. Deleting the repository afterwards does not remove the installed application or its profiles.
+
 For development:
 
 ```bash
@@ -53,6 +61,7 @@ PortGlide stores non-secret profiles in:
 
 ```text
 ~/Library/Application Support/PortGlide/profiles.json
+~/Library/Application Support/PortGlide/profiles.backup.json
 ```
 
 SSH hostnames, users, ports, and identity files remain in `~/.ssh/config`. VPN profiles and private keys are never copied into the repository or application profile store.
